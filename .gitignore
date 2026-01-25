@@ -1,8 +1,6 @@
 clusters/*
-!clusters/.gitkeep
 **/kubeconfig*.yaml
 **/*.state.json
 **/cloud-init*.yml
 **/cloud-init*.yaml
-**/output*/
 **/.k3s-cluster-setup.state.json
