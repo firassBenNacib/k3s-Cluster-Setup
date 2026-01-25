@@ -86,14 +86,14 @@ function Remove-K3sCluster {
         Invoke-Multipass -MultipassCmd $multipass -MpArgs (@("stop") + $vms) -AllowNonZero | Out-Null
 
         if ($PurgeMultipass) {
-            Write-Host ("Deleting (purge) VMs: {0}" -f ($vms -join ", ")) -ForegroundColor DarkGray
+            Write-Host ("Deleting VMs: {0}" -f ($vms -join ", ")) -ForegroundColor DarkGray
             try {
                 Invoke-Multipass -MultipassCmd $multipass -MpArgs (@("delete", "--purge") + $vms) | Out-Null
             }
             catch {
                 Write-Warning ("Batch delete --purge failed; falling back to per-VM delete. {0}" -f $_.Exception.Message)
                 foreach ($vm in $vms) {
-                    Write-Host "  Deleting (purge): $vm" -ForegroundColor DarkGray
+                    Write-Host "  Deleting: $vm" -ForegroundColor DarkGray
                     Invoke-Multipass -MultipassCmd $multipass -MpArgs @("delete", "--purge", $vm) -AllowNonZero | Out-Null
                 }
             }

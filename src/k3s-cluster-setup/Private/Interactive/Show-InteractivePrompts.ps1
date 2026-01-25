@@ -149,8 +149,8 @@ function Show-InteractivePrompts {
 
     Write-Host ""
     Write-Host "Addons profile" -ForegroundColor DarkCyan
-    Write-Host "  1. default (Traefik + ServiceLB + metrics-server)"
-    Write-Host "  2. minimal (disable all three)"
+    Write-Host "  1. default"
+    Write-Host "  2. minimal"
     Write-Host "  3. custom"
 
     $profileChoice = Read-IntInRange -Prompt "Select" -Default $defaultProfile -Min 1 -Max 3
