@@ -76,6 +76,16 @@ function Invoke-K3sClusterCreateServers {
             Stop-IfCancelled
             $sname = $AdditionalServers[$i]
             $serverIndex = $i + 2
+            try {
+                $latestIp = Get-InstanceIPv4 -MultipassCmd $MultipassCmd -InstanceName $server1
+                if ($latestIp -and $latestIp -ne $serverIP) {
+                    Write-Verbose ("Server IP changed during create: '{0}' -> '{1}'" -f $serverIP, $latestIp)
+                    $serverIP = $latestIp
+                }
+            }
+            catch {
+                Write-Verbose ("Failed to refresh server IP for '{0}': {1}" -f $server1, $_.Exception.Message)
+            }
             $sexec = New-K3sServerExecArgs -IsInitServer $false -UseClusterInit $UseClusterInit -DisableFlannel $DisableFlannel `
                 -DisableTraefik $DisableTraefik -DisableServiceLB $DisableServiceLB -DisableMetricsServer $DisableMetricsServer -JoinServerIP $serverIP
 
@@ -99,11 +109,47 @@ function Invoke-K3sClusterCreateServers {
             if (-not (Wait-MultipassInstanceReady -MultipassCmd $MultipassCmd -InstanceName $sname -TimeoutSeconds $LaunchTimeoutSeconds)) {
                 throw "Instance '$sname' did not become ready within ${LaunchTimeoutSeconds}s."
             }
-            if (-not (Wait-NodeRegistered -MultipassCmd $MultipassCmd -PrimaryServer $server1 -NodeName $sname -TimeoutSeconds $NodeRegisterTimeoutSeconds -RemoteCmdTimeoutSeconds $RemoteCmdTimeoutSeconds)) {
+
+            $registered = Wait-NodeRegistered -MultipassCmd $MultipassCmd -PrimaryServer $server1 -NodeName $sname -TimeoutSeconds $NodeRegisterTimeoutSeconds -RemoteCmdTimeoutSeconds $RemoteCmdTimeoutSeconds
+            if (-not $registered) {
+                Write-Warning "Node '$sname' failed to register; refreshing API endpoint and retrying..."
+                try {
+                    $refresh = Refresh-ClusterApiEndpoint -ClusterName $ClusterName -MultipassCmd $MultipassCmd -MaxAttempts 30 -DelaySeconds 2
+                    if ($refresh -and $refresh.ServerIp) {
+                        $serverIP = $refresh.ServerIp
+                    }
+                }
+                catch {
+                    Write-Verbose ("Refresh-ClusterApiEndpoint failed: {0}" -f $_.Exception.Message)
+                }
+                try {
+                    $latestIp = Get-InstanceIPv4 -MultipassCmd $MultipassCmd -InstanceName $server1
+                    if ($latestIp) { $serverIP = $latestIp }
+                }
+                catch {
+                    Write-Verbose ("Failed to refresh server IP for '{0}': {1}" -f $server1, $_.Exception.Message)
+                }
+                $registered = Wait-NodeRegistered -MultipassCmd $MultipassCmd -PrimaryServer $server1 -NodeName $sname -TimeoutSeconds $NodeRegisterTimeoutSeconds -RemoteCmdTimeoutSeconds $RemoteCmdTimeoutSeconds
+            }
+            if (-not $registered) {
                 throw "Node '$sname' failed to register within ${NodeRegisterTimeoutSeconds}s."
             }
             if (-not $DisableFlannel) {
-                if (-not (Wait-NodeReady -MultipassCmd $MultipassCmd -PrimaryServer $server1 -NodeName $sname -TimeoutSeconds $NodeReadyTimeoutSeconds -RemoteCmdTimeoutSeconds $RemoteCmdTimeoutSeconds)) {
+                $ready = Wait-NodeReady -MultipassCmd $MultipassCmd -PrimaryServer $server1 -NodeName $sname -TimeoutSeconds $NodeReadyTimeoutSeconds -RemoteCmdTimeoutSeconds $RemoteCmdTimeoutSeconds
+                if (-not $ready) {
+                    Write-Warning "Node '$sname' failed to reach Ready; refreshing API endpoint and retrying..."
+                    try {
+                        $refresh = Refresh-ClusterApiEndpoint -ClusterName $ClusterName -MultipassCmd $MultipassCmd -MaxAttempts 30 -DelaySeconds 2
+                        if ($refresh -and $refresh.ServerIp) {
+                            $serverIP = $refresh.ServerIp
+                        }
+                    }
+                    catch {
+                        Write-Verbose ("Refresh-ClusterApiEndpoint failed: {0}" -f $_.Exception.Message)
+                    }
+                    $ready = Wait-NodeReady -MultipassCmd $MultipassCmd -PrimaryServer $server1 -NodeName $sname -TimeoutSeconds $NodeReadyTimeoutSeconds -RemoteCmdTimeoutSeconds $RemoteCmdTimeoutSeconds
+                }
+                if (-not $ready) {
                     throw "Node '$sname' failed to reach Ready within ${NodeReadyTimeoutSeconds}s."
                 }
             }
