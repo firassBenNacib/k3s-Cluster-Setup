@@ -19,6 +19,7 @@ A PowerShell tool for creating and managing local k3s Kubernetes clusters on Ubu
 ## Prerequisites
 
 
+* Windows 10/11 with Hyper-V enabled
 * [Multipass](https://multipass.run/)
 * [kubectl](https://kubernetes.io/docs/tasks/tools/install-kubectl-windows/)
 
