@@ -3,62 +3,6 @@ function Get-UbuntuImageIndex {
 
     $rows = New-Object System.Collections.ArrayList
 
-    function Get-RowValue {
-        param([Parameter(Mandatory)]$Row, [Parameter(Mandatory)][string]$Name)
-
-        if ($null -eq $Row) {
-            return $null
-        }
-        if (Test-HasProperty -Object $Row -Name $Name) {
-            return $Row.$Name
-        }
-        return $null
-    }
-
-    function Add-Row {
-        param([string]$Image, [string]$Aliases, [string]$Description)
-
-        if ([string]::IsNullOrWhiteSpace($Image)) {
-            return
-        }
-
-        $img = $Image.Trim()
-        if ($img -like 'daily:*') {
-            return
-        }
-        if ($img -notmatch '^\d{2}\.\d{2}$') {
-            return
-        }
-
-        $desc = if ($null -eq $Description) {
-            ""
-        }
-        else {
-            $Description.Trim()
-        }
-        if ($desc -notmatch '^Ubuntu\s') {
-            return
-        }
-        if ($desc -match '^Ubuntu\s+Core') {
-            return
-        }
-
-        $als = @()
-        if (-not [string]::IsNullOrWhiteSpace($Aliases)) {
-            $als = @(
-                $Aliases.Split(',') |
-                    ForEach-Object { $_.Trim().ToLowerInvariant() } |
-                    Where-Object { -not [string]::IsNullOrWhiteSpace($_) }
-            )
-        }
-
-        [void]$rows.Add([pscustomobject]@{
-                Version     = $img
-                Aliases     = $als
-                Description = $desc
-            })
-    }
-
     $csvParsed = $false
     $csvAdded = $false
     try {
@@ -70,10 +14,10 @@ function Get-UbuntuImageIndex {
             $before = $rows.Count
             $csv = $text | ConvertFrom-Csv
             foreach ($r in @($csv)) {
-                $imgRaw = Get-RowValue -Row $r -Name "Image"
-                $aliases = Get-RowValue -Row $r -Name "Aliases"
-                $desc = Get-RowValue -Row $r -Name "Description"
-                $verRaw = Get-RowValue -Row $r -Name "Version"
+                $imgRaw = Get-UbuntuImageIndexRowValue -Row $r -Name "Image"
+                $aliases = Get-UbuntuImageIndexRowValue -Row $r -Name "Aliases"
+                $desc = Get-UbuntuImageIndexRowValue -Row $r -Name "Description"
+                $verRaw = Get-UbuntuImageIndexRowValue -Row $r -Name "Version"
 
                 $img = $imgRaw
                 $ver = $null
@@ -91,7 +35,7 @@ function Get-UbuntuImageIndex {
                     }
                 }
 
-                Add-Row -Image $img -Aliases $aliases -Description $desc
+                Add-UbuntuImageIndexRow -Rows $rows -Image $img -Aliases $aliases -Description $desc
             }
             if ($rows.Count -gt $before) {
                 $csvAdded = $true
@@ -124,10 +68,10 @@ function Get-UbuntuImageIndex {
                 }
 
                 if ($cols.Count -eq 3) {
-                    Add-Row -Image $cols[0] -Aliases "" -Description $cols[2]
+                    Add-UbuntuImageIndexRow -Rows $rows -Image $cols[0] -Aliases "" -Description $cols[2]
                 }
                 else {
-                    Add-Row -Image $cols[0] -Aliases $cols[1] -Description $cols[3]
+                    Add-UbuntuImageIndexRow -Rows $rows -Image $cols[0] -Aliases $cols[1] -Description $cols[3]
                 }
             }
         }

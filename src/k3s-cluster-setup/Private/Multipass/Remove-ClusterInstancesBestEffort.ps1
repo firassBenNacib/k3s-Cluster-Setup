@@ -47,24 +47,6 @@ function Remove-ClusterInstancesBestEffort {
         $rxOldSrv = '^k3s-server-' + [regex]::Escape($ClusterName) + '$'
         $rxOldAgt = '^k3s-agent-' + [regex]::Escape($ClusterName) + '-\d+$'
 
-        function Add-ClusterTargetsFromList {
-            try {
-                $listObj = Get-MultipassListJson -MultipassCmd $MultipassCmd
-                if (-not $listObj -or -not $listObj.list) {
-                    return
-                }
-                foreach ($vm in @($listObj.list)) {
-                    $n = $vm.name
-                    if ($n -match $rxNewSrv -or $n -match $rxNewAgt -or $n -match $rxOldSrv -or $n -match $rxOldAgt) {
-                        [void]$targets.Add($n)
-                    }
-                }
-            }
-            catch {
-                Write-NonFatalError $_
-            }
-        }
-
         try {
             Invoke-Multipass -MultipassCmd $MultipassCmd -MpArgs @('wait-ready', '--timeout', '30') -AllowNonZero -TimeoutSeconds 35 | Out-Null
         }
@@ -72,13 +54,13 @@ function Remove-ClusterInstancesBestEffort {
             Write-NonFatalError $_
         }
 
-        Add-ClusterTargetsFromList
+        Add-ClusterTargetsFromList -MultipassCmd $MultipassCmd -Targets $targets -RxNewSrv $rxNewSrv -RxNewAgt $rxNewAgt -RxOldSrv $rxOldSrv -RxOldAgt $rxOldAgt
 
         $appearDeadline = (Get-Date).AddSeconds([Math]::Max(0, $WaitForAppearSeconds))
         $deadline = (Get-Date).AddSeconds([Math]::Max(0, $WaitForAppearSeconds + 30))
 
         while ($true) {
-            Add-ClusterTargetsFromList
+            Add-ClusterTargetsFromList -MultipassCmd $MultipassCmd -Targets $targets -RxNewSrv $rxNewSrv -RxNewAgt $rxNewAgt -RxOldSrv $rxOldSrv -RxOldAgt $rxOldAgt
 
             foreach ($vm in @($targets)) {
 
