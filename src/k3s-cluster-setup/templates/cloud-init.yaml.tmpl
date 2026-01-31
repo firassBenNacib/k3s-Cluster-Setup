@@ -1,0 +1,6 @@
+hostname: {{HOSTNAME}}
+manage_etc_hosts: true
+package_update: false
+package_upgrade: false
+runcmd:
+  - [ bash, -lc, "{{INSTALL_CMD}}" ]

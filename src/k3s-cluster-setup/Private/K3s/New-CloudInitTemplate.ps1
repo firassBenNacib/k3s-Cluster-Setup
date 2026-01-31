@@ -23,25 +23,13 @@ function New-CloudInitTemplate {
 
     if ($IsAgent) {
         $installCmd = "set -euo pipefail; for i in {1..10}; do curl -sfL https://get.k3s.io | INSTALL_K3S_CHANNEL=$safeChannel$versionEnv K3S_TOKEN=$safeAgentToken K3S_URL=https://${ServerIP}:6443 INSTALL_K3S_EXEC=$safeAgentExec sh - && exit 0; echo 'k3s install failed, retrying in 5s...' >&2; sleep 5; done; exit 1"
-        return @"
-#cloud-config
-hostname: $Hostname
-manage_etc_hosts: true
-package_update: false
-package_upgrade: false
-runcmd:
-  - [ bash, -lc, "$installCmd" ]
-"@
+    }
+    else {
+        $installCmd = "set -euo pipefail; for i in {1..10}; do curl -sfL https://get.k3s.io | INSTALL_K3S_CHANNEL=$safeChannel$versionEnv K3S_TOKEN=$safeServerToken K3S_AGENT_TOKEN=$safeAgentToken K3S_KUBECONFIG_MODE=644 INSTALL_K3S_EXEC=$safeServerExec sh - && exit 0; echo 'k3s install failed, retrying in 5s...' >&2; sleep 5; done; exit 1"
     }
 
-    $installCmd = "set -euo pipefail; for i in {1..10}; do curl -sfL https://get.k3s.io | INSTALL_K3S_CHANNEL=$safeChannel$versionEnv K3S_TOKEN=$safeServerToken K3S_AGENT_TOKEN=$safeAgentToken K3S_KUBECONFIG_MODE=644 INSTALL_K3S_EXEC=$safeServerExec sh - && exit 0; echo 'k3s install failed, retrying in 5s...' >&2; sleep 5; done; exit 1"
-    return @"
-#cloud-config
-hostname: $Hostname
-manage_etc_hosts: true
-package_update: false
-package_upgrade: false
-runcmd:
-  - [ bash, -lc, "$installCmd" ]
-"@
+    return Get-TemplateContent -Name "cloud-init.yaml.tmpl" -Tokens @{
+        HOSTNAME    = $Hostname
+        INSTALL_CMD = $installCmd
+    }
 }

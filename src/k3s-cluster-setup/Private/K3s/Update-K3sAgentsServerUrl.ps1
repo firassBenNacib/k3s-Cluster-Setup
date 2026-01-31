@@ -22,60 +22,9 @@ function Update-K3sAgentsServerUrl {
 
     $serverUrl = "https://$($ServerIp):6443"
     $serverUrlLiteral = ConvertTo-BashSingleQuoted -Value $serverUrl
-    $scriptTemplateLines = @(
-        'set -e',
-        'url=__SERVER_URL__',
-        'if [ -z "$url" ]; then',
-        '  echo "server url is empty" >&2',
-        '  exit 1',
-        'fi',
-        'updated=0',
-        'update_env() {',
-        '  file="$1"',
-        '  if [ -f "$file" ]; then',
-        '    if grep -q ''^K3S_URL='' "$file"; then',
-        '      sed -i "s|^K3S_URL=.*|K3S_URL=$url|" "$file"',
-        '    else',
-        '      echo "K3S_URL=$url" >> "$file"',
-        '    fi',
-        '  else',
-        '    printf "K3S_URL=%s\n" "$url" > "$file"',
-        '  fi',
-        '  updated=1',
-        '}',
-        'update_env /etc/systemd/system/k3s-agent.service.env',
-        'if [ -f /etc/default/k3s-agent ]; then',
-        '  update_env /etc/default/k3s-agent',
-        'fi',
-        'update_yaml() {',
-        '  file="$1"',
-        '  if [ -f "$file" ]; then',
-        '    if grep -q ''^server:'' "$file"; then',
-        '      sed -i "s|^server:.*|server: $url|" "$file"',
-        '    else',
-        '      echo "server: $url" >> "$file"',
-        '    fi',
-        '  else',
-        '    mkdir -p "$(dirname "$file")"',
-        '    echo "server: $url" > "$file"',
-        '  fi',
-        '  updated=1',
-        '}',
-        'update_yaml /etc/rancher/k3s/config.yaml',
-        'update_yaml /etc/rancher/k3s/agent/config.yaml',
-        'if [ -f /etc/systemd/system/k3s-agent.service ]; then',
-        '  if grep -q ''K3S_URL='' /etc/systemd/system/k3s-agent.service; then',
-        '    sed -i "s|K3S_URL=.*|K3S_URL=$url|" /etc/systemd/system/k3s-agent.service',
-        '    updated=1',
-        '  fi',
-        'fi',
-        'if [ "$updated" -eq 1 ]; then',
-        '  systemctl daemon-reload || true',
-        '  systemctl restart k3s-agent || true',
-        'fi'
-    )
-    $scriptTemplate = ($scriptTemplateLines -join "`n")
-    $scriptTextFile = $scriptTemplate.Replace("__SERVER_URL__", $serverUrlLiteral)
+    $scriptTextFile = Get-TemplateContent -Name "k3s-agent-url.sh.tmpl" -Tokens @{
+        SERVER_URL = $serverUrlLiteral
+    } -NormalizeLf
     $scriptTextInline = [regex]::Replace($scriptTextFile, "[\r\n]+", "; ")
     $scriptArg = ConvertTo-BashSingleQuoted -Value $scriptTextInline
     $cmd = "sudo /bin/bash -lc $scriptArg"
